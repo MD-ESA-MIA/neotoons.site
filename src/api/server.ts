@@ -24,7 +24,16 @@ const requireEnv = (name: string): string => {
   return value;
 };
 
+const parseOriginList = (value?: string): string[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 const FRONTEND_URL = requireEnv('FRONTEND_URL');
+const ALLOWED_ORIGINS = Array.from(new Set([FRONTEND_URL, ...parseOriginList(process.env.FRONTEND_URLS)]));
 
 const cspDirectives = {
   defaultSrc: ["'self'"],
@@ -40,6 +49,7 @@ const cspDirectives = {
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet({
@@ -50,7 +60,19 @@ app.use(helmet({
   referrerPolicy: { policy: 'no-referrer' },
 }));
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(requestLogger);
@@ -83,6 +105,7 @@ app.listen(PORT, () => {
     port: PORT,
     emailService: process.env.EMAIL_USER ? 'configured' : 'not_configured',
     frontendUrl: FRONTEND_URL,
+    allowedOrigins: ALLOWED_ORIGINS,
   });
 });
 

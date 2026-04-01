@@ -18,6 +18,7 @@ const requireEnv = (name: string): string => {
 const JWT_SECRET = requireEnv('JWT_SECRET');
 const ADMIN_SESSION_SECRET = requireEnv('ADMIN_SESSION_SECRET');
 const COOKIE_SECURE = process.env.NODE_ENV === 'production';
+const COOKIE_SAME_SITE: 'strict' | 'none' = process.env.CROSS_SITE_COOKIES === 'true' ? 'none' : 'strict';
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -95,7 +96,7 @@ const issueAdminCookie = (res: Response, user: User) => {
   if (user.role !== 'owner' && user.role !== 'admin') {
     res.clearCookie('admin_token', {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite: COOKIE_SAME_SITE,
       secure: COOKIE_SECURE,
       maxAge: 0,
       expires: new Date(0),
@@ -103,7 +104,7 @@ const issueAdminCookie = (res: Response, user: User) => {
     });
     res.clearCookie('csrf_token', {
       httpOnly: false,
-      sameSite: 'strict',
+      sameSite: COOKIE_SAME_SITE,
       secure: COOKIE_SECURE,
       maxAge: 0,
       expires: new Date(0),
@@ -121,7 +122,7 @@ const issueAdminCookie = (res: Response, user: User) => {
   res.cookie('admin_token', adminToken, {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    sameSite: 'strict',
+    sameSite: COOKIE_SAME_SITE,
     maxAge: 24 * 60 * 60 * 1000,
     path: '/',
   });
@@ -130,7 +131,7 @@ const issueAdminCookie = (res: Response, user: User) => {
   res.cookie('csrf_token', csrfToken, {
     httpOnly: false,
     secure: COOKIE_SECURE,
-    sameSite: 'strict',
+    sameSite: COOKIE_SAME_SITE,
     maxAge: 24 * 60 * 60 * 1000,
     path: '/',
   });
@@ -174,7 +175,7 @@ router.post('/register', authLimiter, async (req: Request, res: Response) => {
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: COOKIE_SECURE,
-      sameSite: 'strict',
+      sameSite: COOKIE_SAME_SITE,
       maxAge: 24 * 60 * 60 * 1000,
       path: '/',
     });
@@ -227,7 +228,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: COOKIE_SECURE,
-      sameSite: 'strict',
+      sameSite: COOKIE_SAME_SITE,
       maxAge: 24 * 60 * 60 * 1000,
       path: '/',
     });
@@ -334,7 +335,7 @@ router.post('/logout', (_req: Request, res: Response) => {
   const logoutPayload = cookies.auth_token ? verifyAuthToken(cookies.auth_token) : null;
   res.clearCookie('auth_token', {
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: COOKIE_SAME_SITE,
     secure: COOKIE_SECURE,
     maxAge: 0,
     expires: new Date(0),
@@ -342,7 +343,7 @@ router.post('/logout', (_req: Request, res: Response) => {
   });
   res.clearCookie('admin_token', {
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: COOKIE_SAME_SITE,
     secure: COOKIE_SECURE,
     maxAge: 0,
     expires: new Date(0),
@@ -350,7 +351,7 @@ router.post('/logout', (_req: Request, res: Response) => {
   });
   res.clearCookie('csrf_token', {
     httpOnly: false,
-    sameSite: 'strict',
+    sameSite: COOKIE_SAME_SITE,
     secure: COOKIE_SECURE,
     maxAge: 0,
     expires: new Date(0),

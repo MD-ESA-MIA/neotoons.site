@@ -1,4 +1,3 @@
-import { FirebaseProvider } from './data/firebaseProvider';
 import { DatabaseProvider } from './data/provider';
 import { SupabaseProvider } from './data/supabaseProvider';
 import {
@@ -12,18 +11,18 @@ import {
   UserRecord,
 } from './data/types';
 
-export type DatabaseProviderName = 'supabase' | 'firebase';
+export type DatabaseProviderName = 'supabase';
 
-const configuredProvider = (import.meta.env.VITE_DB_PROVIDER as DatabaseProviderName | undefined) ?? 'supabase';
+const configuredProvider = import.meta.env.VITE_DB_PROVIDER;
+
+if (configuredProvider && configuredProvider !== 'supabase') {
+  console.warn(`Unsupported VITE_DB_PROVIDER "${configuredProvider}". Falling back to supabase.`);
+}
 
 let provider: DatabaseProvider | null = null;
-let providerName: DatabaseProviderName = configuredProvider;
+let providerName: DatabaseProviderName = 'supabase';
 
 const buildProvider = (name: DatabaseProviderName): DatabaseProvider => {
-  if (name === 'firebase') {
-    return new FirebaseProvider();
-  }
-
   return new SupabaseProvider();
 };
 

@@ -4,7 +4,8 @@ import { AITool as Plugin } from '../types';
 
 export type { Feature, PricingPlan, CMSContent, CustomPage, Plugin };
 
-const API_BASE = '/api';
+const API_ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const API_BASE = API_ROOT ? `${API_ROOT}/api` : '/api';
 
 const normalizeArrayPayload = <T>(payload: unknown, collectionKeys: string[] = []): T[] => {
   if (Array.isArray(payload)) {

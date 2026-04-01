@@ -9,6 +9,7 @@ import { RootState } from './store';
 import toast from 'react-hot-toast';
 
 let socket: Socket | null = null;
+const SOCKET_URL = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/+$/, '');
 
 export const getSocket = () => socket;
 
@@ -47,7 +48,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   useEffect(() => {
     if (user && !socket) {
-      socket = io(window.location.origin);
+      socket = io(SOCKET_URL, { withCredentials: true });
       
       socket.on('notification', (notif) => {
         dispatch(addNotification(notif));

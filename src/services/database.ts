@@ -1,16 +1,22 @@
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where,
-  onSnapshot
-} from "firebase/firestore";
-import { db, firebaseEnabled } from "../firebase";
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+let supabaseClient: SupabaseClient | null = null;
+
+const getSupabaseClient = (): SupabaseClient | null => {
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    return null;
+  }
+
+  supabaseClient = createClient(url, anonKey);
+  return supabaseClient;
+};
 
 /**
  * Generic Database Service
@@ -21,49 +27,51 @@ export const dbService = {
    * Get all documents from a collection
    */
   async getAll<T>(collectionName: string, mockData: T[]): Promise<T[]> {
-    if (firebaseEnabled && db) {
-      try {
-        const querySnapshot = await getDocs(collection(db, collectionName));
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
-      } catch (error) {
-        console.error(`Error getting collection ${collectionName}:`, error);
-        return mockData;
-      }
+    const client = getSupabaseClient();
+    if (!client) {
+      return mockData;
     }
-    return mockData;
+
+    try {
+      const { data, error } = await client.from(collectionName).select('*');
+      if (error) throw error;
+      return (data ?? []) as T[];
+    } catch (error) {
+      console.error(`Error getting collection ${collectionName}:`, error);
+      return mockData;
+    }
   },
 
   /**
    * Listen to real-time updates
    */
   subscribe<T>(collectionName: string, callback: (data: T[]) => void, mockData: T[]) {
-    if (firebaseEnabled && db) {
-      return onSnapshot(collection(db, collectionName), (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
-        callback(data);
-      }, (error) => {
-        console.error(`Subscription error for ${collectionName}:`, error);
+    this.getAll<T>(collectionName, mockData)
+      .then((data) => callback(data))
+      .catch((error) => {
+        console.error(`Subscription bootstrap error for ${collectionName}:`, error);
         callback(mockData);
       });
-    }
-    callback(mockData);
-    return () => {}; // No-op unsubscribe for mock mode
+
+    // Polling/realtime can be introduced later if needed.
+    return () => {};
   },
 
   /**
    * Get a single document
    */
   async getOne<T>(collectionName: string, id: string, mockItem: T | null): Promise<T | null> {
-    if (firebaseEnabled && db) {
-      try {
-        const docRef = doc(db, collectionName, id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          return { id: docSnap.id, ...docSnap.data() } as T;
-        }
-      } catch (error) {
-        console.error(`Error getting doc ${id} from ${collectionName}:`, error);
-      }
+    const client = getSupabaseClient();
+    if (!client) {
+      return mockItem;
+    }
+
+    try {
+      const { data, error } = await client.from(collectionName).select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return (data as T | null) ?? mockItem;
+    } catch (error) {
+      console.error(`Error getting doc ${id} from ${collectionName}:`, error);
     }
     return mockItem;
   },
@@ -72,33 +80,44 @@ export const dbService = {
    * Save or update a document
    */
   async save(collectionName: string, id: string, data: any) {
-    if (firebaseEnabled && db) {
-      try {
-        await setDoc(doc(db, collectionName, id), data, { merge: true });
-        return true;
-      } catch (error) {
-        console.error(`Error saving doc ${id} to ${collectionName}:`, error);
-        return false;
-      }
+    const client = getSupabaseClient();
+    if (!client) {
+      console.log(`[Mock DB] Saved to ${collectionName}/${id}:`, data);
+      return true;
     }
-    console.log(`[Mock DB] Saved to ${collectionName}/${id}:`, data);
-    return true;
+
+    try {
+      const payload = {
+        id,
+        ...data,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await client.from(collectionName).upsert(payload);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error saving doc ${id} to ${collectionName}:`, error);
+      return false;
+    }
   },
 
   /**
    * Delete a document
    */
   async delete(collectionName: string, id: string) {
-    if (firebaseEnabled && db) {
-      try {
-        await deleteDoc(doc(db, collectionName, id));
-        return true;
-      } catch (error) {
-        console.error(`Error deleting doc ${id} from ${collectionName}:`, error);
-        return false;
-      }
+    const client = getSupabaseClient();
+    if (!client) {
+      console.log(`[Mock DB] Deleted ${collectionName}/${id}`);
+      return true;
     }
-    console.log(`[Mock DB] Deleted ${collectionName}/${id}`);
-    return true;
+
+    try {
+      const { error } = await client.from(collectionName).delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error deleting doc ${id} from ${collectionName}:`, error);
+      return false;
+    }
   }
 };
