@@ -1,0 +1,15 @@
+export const THEME = {
+  ACCENT: '#7C3AED',
+  ACCENT_LIGHT: '#A78BFA',
+  ACCENT_GLOW: 'rgba(124,58,237,0.18)',
+  GOLD: '#F59E0B',
+  CYAN: '#06B6D4',
+  BG: '#050508',
+  CARD: '#0F0F1C',
+  BORDER: '#1C1C32',
+  TEXT: '#F0F0F8',
+  MUTED: '#6B7280',
+  FONT_DISPLAY: 'Playfair Display',
+  FONT_BODY: 'Outfit',
+  FONT_MONO: 'JetBrains Mono',
+};

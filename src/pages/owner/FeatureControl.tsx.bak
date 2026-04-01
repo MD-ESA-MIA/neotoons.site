@@ -1,0 +1,100 @@
+import React from 'react';
+import { 
+  Zap, 
+  FileText, 
+  Plus, 
+  Flag, 
+  ShoppingCart, 
+  Users, 
+  Shield, 
+  CheckCircle2, 
+  XCircle,
+  RefreshCcw
+} from 'lucide-react';
+import { motion } from 'motion/react';
+import { useConfig } from '../../context/ConfigContext';
+import { featureService } from '../../services/appServices';
+import toast from 'react-hot-toast';
+
+const FeatureControl: React.FC = () => {
+  const { features } = useConfig();
+
+  const handleToggle = async (id: string, currentStatus: boolean) => {
+    const success = await featureService.toggle(id, !currentStatus);
+    if (success) {
+      toast.success(`Feature ${!currentStatus ? 'enabled' : 'disabled'} successfully`);
+    } else {
+      toast.error('Failed to update feature status');
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold text-white tracking-tight">Feature Control</h1>
+          <p className="text-white/40">Dynamically enable or disable platform features across the entire website.</p>
+        </div>
+        <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold transition-all border border-white/5">
+          <RefreshCcw className="w-4 h-4" /> Reset to Defaults
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {features.map((feature) => (
+          <div key={feature.id} className="bg-[#0A0A0B] border border-white/5 p-6 rounded-3xl space-y-6 group hover:border-indigo-500/30 transition-all">
+            <div className="flex items-center justify-between">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${feature.enabled ? 'bg-indigo-500/10 text-indigo-500' : 'bg-white/5 text-white/20'}`}>
+                {feature.id === 'ai-tools' && <Zap className="w-6 h-6" />}
+                {feature.id === 'blog' && <FileText className="w-6 h-6" />}
+                {feature.id === 'marketplace' && <ShoppingCart className="w-6 h-6" />}
+                {feature.id === 'referral' && <Users className="w-6 h-6" />}
+                {feature.id === 'beta-features' && <Shield className="w-6 h-6" />}
+                {!['ai-tools', 'blog', 'marketplace', 'referral', 'beta-features'].includes(feature.id) && <Flag className="w-6 h-6" />}
+              </div>
+              <button 
+                onClick={() => handleToggle(feature.id, feature.enabled)}
+                className={`w-12 h-6 rounded-full relative transition-all ${feature.enabled ? 'bg-indigo-500' : 'bg-white/10'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${feature.enabled ? 'left-7' : 'left-1'}`}></div>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-white">{feature.name}</h3>
+                {feature.enabled ? (
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold uppercase tracking-widest">
+                    <CheckCircle2 className="w-3 h-3" /> Active
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] text-white/20 font-bold uppercase tracking-widest">
+                    <XCircle className="w-3 h-3" /> Disabled
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-white/40 leading-relaxed">
+                {feature.description}
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Visibility: {feature.enabled ? 'Global' : 'Hidden'}</span>
+              <button className="text-[10px] font-bold text-indigo-400 hover:underline uppercase tracking-widest">Settings</button>
+            </div>
+          </div>
+        ))}
+
+        {/* Add New Feature Placeholder */}
+        <div className="bg-white/[0.02] border border-dashed border-white/10 p-6 rounded-3xl flex flex-col items-center justify-center gap-4 group hover:border-indigo-500/50 transition-all cursor-pointer">
+          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 group-hover:text-indigo-500 transition-colors">
+            <Plus className="w-6 h-6" />
+          </div>
+          <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Register New Feature</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FeatureControl;

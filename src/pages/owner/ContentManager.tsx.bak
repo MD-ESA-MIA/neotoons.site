@@ -1,0 +1,168 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  FileText, 
+  Image as ImageIcon, 
+  Megaphone, 
+  Layout, 
+  Plus, 
+  Search, 
+  MoreHorizontal,
+  Edit2,
+  Trash2,
+  Eye,
+  Globe,
+  Save
+} from 'lucide-react';
+import { motion } from 'motion/react';
+import { useConfig } from '../../context/ConfigContext';
+import { cmsService } from '../../services/appServices';
+import toast from 'react-hot-toast';
+
+const ContentManager: React.FC = () => {
+  const { cms } = useConfig();
+  const [activeTab, setActiveTab] = useState('pages');
+  const [formData, setFormData] = useState({
+    heroTitle: '',
+    heroDescription: '',
+    footerText: '',
+    aboutSection: ''
+  });
+
+  useEffect(() => {
+    if (cms) {
+      setFormData({
+        heroTitle: cms.heroTitle || '',
+        heroDescription: cms.heroDescription || '',
+        footerText: cms.footerText || '',
+        aboutSection: cms.aboutSection || ''
+      });
+    }
+  }, [cms]);
+
+  const handleSave = async () => {
+    const success = await cmsService.update(formData);
+    if (success) {
+      toast.success('Content updated successfully');
+    } else {
+      toast.error('Failed to update content');
+    }
+  };
+
+  const tabs = [
+    { id: 'pages', label: 'Pages', icon: Layout },
+    { id: 'blog', label: 'Blog Posts', icon: FileText },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone },
+    { id: 'media', label: 'Media Library', icon: ImageIcon },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold text-white tracking-tight">Content Manager</h1>
+          <p className="text-white/40">Manage platform content, blog posts, announcements, and media assets.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20"
+          >
+            <Save className="w-4 h-4" /> Save Global Content
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold transition-all border border-white/5">
+            <Plus className="w-4 h-4" /> Create New
+          </button>
+        </div>
+      </div>
+
+      {/* Content Tabs */}
+      <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl w-fit">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === tab.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-[#0A0A0B] border border-white/5 p-8 rounded-3xl space-y-6">
+            <h3 className="text-lg font-bold text-white">Homepage Content</h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Hero Title</label>
+                <input 
+                  type="text" 
+                  value={formData.heroTitle}
+                  onChange={(e) => setFormData({...formData, heroTitle: e.target.value})}
+                  className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all" 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Hero Description</label>
+                <textarea 
+                  value={formData.heroDescription}
+                  onChange={(e) => setFormData({...formData, heroDescription: e.target.value})}
+                  className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all h-24"
+                ></textarea>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-white/40 uppercase tracking-widest">About Section</label>
+                <textarea 
+                  value={formData.aboutSection}
+                  onChange={(e) => setFormData({...formData, aboutSection: e.target.value})}
+                  className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all h-32"
+                ></textarea>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Footer Text</label>
+                <input 
+                  type="text" 
+                  value={formData.footerText}
+                  onChange={(e) => setFormData({...formData, footerText: e.target.value})}
+                  className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all" 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-[#0A0A0B] border border-white/5 p-8 rounded-3xl space-y-6">
+            <div className="flex items-center gap-3">
+              <Globe className="w-5 h-5 text-indigo-500" />
+              <h3 className="text-lg font-bold text-white">Live Preview</h3>
+            </div>
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Hero Preview</p>
+                <h4 className="text-sm font-bold text-white uppercase">{formData.heroTitle || 'NEO TOONS'}</h4>
+                <p className="text-[10px] text-white/40 line-clamp-2">{formData.heroDescription}</p>
+              </div>
+              <div className="pt-4 border-t border-white/5">
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Footer Preview</p>
+                <p className="text-[10px] text-white/40">{formData.footerText}</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-white/20 leading-relaxed italic">
+              * Changes saved here will instantly reflect on the public website if Firebase is connected.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ContentManager;
