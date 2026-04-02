@@ -1,0 +1,40 @@
+export var AppMode;
+(function (AppMode) {
+    AppMode["STORY"] = "STORY_GENERATOR";
+    AppMode["HOOKS"] = "VIRAL_HOOKS";
+    AppMode["REWRITE"] = "SCRIPT_REWRITER";
+    AppMode["VOICEOVER"] = "VOICE_OVER";
+    AppMode["PROMPTS"] = "AI_PROMPTS";
+    AppMode["SOCIAL"] = "SOCIAL_POSTS";
+    AppMode["CHARACTER"] = "CHARACTER_CREATOR";
+    AppMode["EBOOK"] = "AI_EBOOK_GENERATOR";
+    AppMode["CONTINUATION"] = "STORY_CONTINUATION";
+    AppMode["EXPANDER"] = "STORY_EXPANDER";
+    AppMode["CHAPTER"] = "CHAPTER_GENERATOR";
+    AppMode["SCRIPT_WRITER"] = "SCRIPT_WRITER";
+    AppMode["HASHTAG"] = "HASHTAG_GENERATOR";
+    AppMode["CAPTION"] = "CAPTION_GENERATOR";
+    AppMode["YT_TITLE"] = "YT_TITLE_GENERATOR";
+    AppMode["VIDEO_IDEA"] = "VIDEO_IDEA_GENERATOR";
+    AppMode["SHORTS_SCRIPT"] = "SHORTS_SCRIPT_GENERATOR";
+    AppMode["COVER"] = "COVER_GENERATOR";
+    AppMode["AUDIOBOOK"] = "AUDIOBOOK_GENERATOR";
+    AppMode["AD_COPY"] = "AD_COPY_GENERATOR";
+    AppMode["EMAIL"] = "EMAIL_WRITER";
+    AppMode["PRODUCT_DESC"] = "PRODUCT_DESC_GENERATOR";
+    AppMode["IMPROVER"] = "CONTENT_IMPROVER";
+    AppMode["CHAT"] = "AI_CHAT_ASSISTANT";
+    AppMode["IMAGE"] = "AI_IMAGE_GENERATOR";
+})(AppMode || (AppMode = {}));
+export var IssueSeverity;
+(function (IssueSeverity) {
+    IssueSeverity["CRITICAL"] = "critical";
+    IssueSeverity["WARNING"] = "warning";
+    IssueSeverity["INFO"] = "info";
+})(IssueSeverity || (IssueSeverity = {}));
+export var IssueStatus;
+(function (IssueStatus) {
+    IssueStatus["ACTIVE"] = "active";
+    IssueStatus["RESOLVED"] = "resolved";
+    IssueStatus["IGNORED"] = "ignored";
+})(IssueStatus || (IssueStatus = {}));

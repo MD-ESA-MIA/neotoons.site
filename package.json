@@ -8,11 +8,14 @@
     "dev:api": "tsx src/api/server.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:api\"",
     "build": "vite build",
+    "build:api": "tsc -p tsconfig.backend.json",
+    "build:all": "npm run build && npm run build:api",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "start": "npx tsx src/api/server.ts"
+    "start": "node dist/api/server.js",
+    "start:dev": "tsx src/api/server.ts"
   },
   "dependencies": {
     "@clerk/express": "^1.7.12",
