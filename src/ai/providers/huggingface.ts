@@ -1,4 +1,4 @@
-import { AIResponse } from '../prompts/systemPrompt';
+import { AIResponse } from '../prompts/systemPrompt.js';
 
 /**
  * Hugging Face Provider

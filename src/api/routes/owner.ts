@@ -3,9 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { clerkClient, getAuth } from '@clerk/express';
-import { counterRateLimitStore } from '../lib/rateLimitStore';
-import { PERMISSIONS, ROLES, hasPermission, type Permission, type UserRole } from '../security/permissions';
-import { log } from '../../utils/logger';
+import { counterRateLimitStore } from '../lib/rateLimitStore.js';
+import { PERMISSIONS, ROLES, hasPermission, type Permission, type UserRole } from '../security/permissions.js';
+import { log } from '../../utils/logger.js';
 
 interface OwnerUserRecord {
   id: string;

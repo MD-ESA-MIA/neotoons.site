@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": ["ES2022"],
-    "moduleResolution": "node",
+    "target": "ES2020",
+    "module": "NodeNext",
+    "lib": ["ES2020"],
+    "moduleResolution": "NodeNext",
     "noEmit": false,
     "noEmitOnError": false,
     "outDir": "./dist",
@@ -20,7 +20,7 @@
     "noPropertyAccessFromIndexSignature": false,
     "strict": false
   },
-  "include": ["src/api/**/*", "src/utils/middleware.ts", "src/utils/logger.ts"],
+  "include": ["src/api/**/*"],
   "exclude": ["node_modules", "dist"],
   "compileOnSave": false
 }

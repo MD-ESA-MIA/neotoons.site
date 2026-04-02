@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PERMISSIONS, hasPermission, type UserRole } from './permissions';
+import { PERMISSIONS, hasPermission, type UserRole } from './permissions.js';
 
 describe('hasPermission', () => {
   it('admin can read users', () => {

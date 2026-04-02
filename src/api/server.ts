@@ -3,15 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { clerkMiddleware, requireAuth } from '@clerk/express';
-import contactRoutes from './routes/contact';
-import aiRoutes from './routes/ai';
+import contactRoutes from './routes/contact.js';
+import aiRoutes from './routes/ai.js';
 import ownerRoutes, {
   ownerAuthMiddleware,
   ownerRateLimitMiddleware,
   ownerCsrfMiddleware,
-} from './routes/owner';
-import { requestLogger, errorHandler } from '../utils/middleware';
-import { log } from '../utils/logger';
+} from './routes/owner.js';
+import { requestLogger, errorHandler } from '../utils/middleware.js';
+import { log } from '../utils/logger.js';
 
 // Load environment variables
 dotenv.config();

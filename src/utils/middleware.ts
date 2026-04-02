@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
-import { log } from './logger';
+import { log } from './logger.js';
 
 /**
  * Secure authentication and authorization middleware

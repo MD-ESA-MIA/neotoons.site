@@ -1,13 +1,13 @@
-import { AIRequest, AIResponse, NEOTOONS_SYSTEM_PROMPT } from './prompts/systemPrompt';
+import { AIRequest, AIResponse, NEOTOONS_SYSTEM_PROMPT } from './prompts/systemPrompt.js';
 import {
   detectIntent,
   detectPlatform,
   detectTone,
   extractContext,
-} from './utils/intentDetection';
-import { generateWithOpenRouter } from './providers/openrouter';
-import { generateImagePromptWithHuggingFace } from './providers/huggingface';
-import { generateWithFallback, getCircuitBreakerStatus } from './providers/fallback';
+} from './utils/intentDetection.js';
+import { generateWithOpenRouter } from './providers/openrouter.js';
+import { generateImagePromptWithHuggingFace } from './providers/huggingface.js';
+import { generateWithFallback, getCircuitBreakerStatus } from './providers/fallback.js';
 
 /**
  * AI Router - Centralized orchestrator for content generation
@@ -267,7 +267,7 @@ export async function checkProviderHealth() {
   try {
     // Test OpenRouter
     const { testOpenRouterConnection } = await import(
-      './providers/openrouter'
+      './providers/openrouter.js'
     );
     const orHealthy = await testOpenRouterConnection();
     health.providers.openrouter = orHealthy ? 'healthy' : 'unhealthy';
@@ -278,7 +278,7 @@ export async function checkProviderHealth() {
   try {
     // Test Hugging Face
     const { testHuggingFaceConnection } = await import(
-      './providers/huggingface'
+      './providers/huggingface.js'
     );
     const hfHealthy = await testHuggingFaceConnection();
     health.providers.huggingface = hfHealthy ? 'healthy' : 'unhealthy';
@@ -288,7 +288,7 @@ export async function checkProviderHealth() {
 
   try {
     // Test Fallback
-    const { testFallbackConnection } = await import('./providers/fallback');
+    const { testFallbackConnection } = await import('./providers/fallback.js');
     const fbHealthy = await testFallbackConnection();
     health.providers.fallback = fbHealthy ? 'healthy' : 'unhealthy';
   } catch (error) {

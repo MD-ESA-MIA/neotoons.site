@@ -7,8 +7,8 @@ const getSupabaseClient = (): SupabaseClient | null => {
     return supabaseClient;
   }
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const url = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
     return null;

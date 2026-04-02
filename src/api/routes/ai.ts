@@ -1,14 +1,14 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '@clerk/express';
-import { generateContent, clearCache, getCacheStats, checkProviderHealth, getProviderStats } from '../../ai/aiRouter';
-import { AIRequest } from '../../ai/prompts/systemPrompt';
-import { generateVoiceAudioChunks, mapSpeedToSlow } from '../../ai/providers/tts';
+import { generateContent, clearCache, getCacheStats, checkProviderHealth, getProviderStats } from '../../ai/aiRouter.js';
+import { AIRequest } from '../../ai/prompts/systemPrompt.js';
+import { generateVoiceAudioChunks, mapSpeedToSlow } from '../../ai/providers/tts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { counterRateLimitStore } from '../lib/rateLimitStore';
-import { ownerAuthMiddleware } from './owner';
-import { log } from '../../utils/logger';
+import { counterRateLimitStore } from '../lib/rateLimitStore.js';
+import { ownerAuthMiddleware } from './owner.js';
+import { log } from '../../utils/logger.js';
 
 const router = express.Router();
 const AUDIO_CACHE_DIR = path.join(process.cwd(), 'cache', 'voice-audio');

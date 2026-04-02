@@ -1,4 +1,4 @@
-import { AIRequest, AIResponse, NEOTOONS_SYSTEM_PROMPT } from '../prompts/systemPrompt';
+import { AIRequest, AIResponse, NEOTOONS_SYSTEM_PROMPT } from '../prompts/systemPrompt.js';
 
 /**
  * Fallback Provider - Gemini Integration

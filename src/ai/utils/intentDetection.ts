@@ -1,4 +1,4 @@
-import { AIRequest, ContentType } from '../prompts/systemPrompt';
+import { AIRequest, ContentType } from '../prompts/systemPrompt.js';
 
 const INTENT_KEYWORDS = {
   story: ['story', 'narrative', 'tale', 'plot', 'character', 'write a story', 'create a story', 'tell me a story'],

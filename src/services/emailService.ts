@@ -54,13 +54,13 @@ class EmailService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}`);
+      const errorData = await response.json() as any;
+      throw new Error(errorData?.message || `HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log(`✅ Email sent: ${data.id}`);
-      return { success: true, messageId: data.id };
+      const data = await response.json() as any;
+      console.log(`✅ Email sent: ${data?.id}`);
+      return { success: true, messageId: data?.id || 'sent' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Failed to send email:', errorMessage);

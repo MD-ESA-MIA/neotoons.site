@@ -1,4 +1,4 @@
-import { AIRequest, AIResponse, NEOTOONS_SYSTEM_PROMPT } from '../prompts/systemPrompt';
+import { AIRequest, AIResponse, NEOTOONS_SYSTEM_PROMPT } from '../prompts/systemPrompt.js';
 
 /**
  * OpenRouter Provider
@@ -65,7 +65,8 @@ export async function generateWithOpenRouter(
         const contentType = response.headers.get('content-type');
         if (contentType?.includes('application/json')) {
           const errorData = await response.json();
-          errorMessage = `❌ OpenRouter API Error: ${errorData.error?.message || errorMessage}`;
+          const err = errorData as any;
+          errorMessage = `❌ OpenRouter API Error: ${err?.error?.message || errorMessage}`;
         }
       } catch (jsonErr) {
         console.error('Failed to parse error response:', jsonErr);

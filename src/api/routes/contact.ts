@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { emailService } from '../../services/emailService';
-import { dbService } from '../../services/database';
-import { counterRateLimitStore } from '../lib/rateLimitStore';
-import { log } from '../../utils/logger';
+import { emailService } from '../../services/emailService.js';
+import { dbService } from '../../services/database.js';
+import { counterRateLimitStore } from '../lib/rateLimitStore.js';
+import { log } from '../../utils/logger.js';
 
 const router = Router();
 
