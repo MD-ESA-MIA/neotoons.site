@@ -61,6 +61,7 @@ const cspDirectives = {
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
+const APP_VERSION = process.env.npm_package_version || 'unknown';
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
@@ -109,7 +110,25 @@ app.use(clerkMiddleware());
 
 // Health check route
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'healthy', message: 'NeoToons AI Backend is running.' });
+  res.json({
+    status: 'healthy',
+    message: 'NeoToons AI Backend is running.',
+    version: APP_VERSION,
+    environment: process.env.NODE_ENV || 'development',
+    uptimeSeconds: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    status: 'healthy',
+    message: 'NeoToons AI Backend is running.',
+    version: APP_VERSION,
+    environment: process.env.NODE_ENV || 'development',
+    uptimeSeconds: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Contact routes
