@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
+import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, 
   Users, 
@@ -63,21 +64,20 @@ const navItems: NavItem[] = [
 const OwnerSidebar: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { logout: clerkLogout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const location = useLocation();
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await clerkLogout();
     } catch (_error) {
-      // Continue local logout even if API call fails
+      // Continue local logout even if Clerk call fails
     } finally {
       dispatch(logout());
       localStorage.removeItem('neotoons_user');
+      localStorage.removeItem('neotoons_clerk_token');
       navigate('/login');
     }
   };

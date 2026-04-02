@@ -2,8 +2,8 @@ import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { clerkMiddleware, requireAuth } from '@clerk/express';
 import contactRoutes from './routes/contact';
-import authRoutes from './routes/auth';
 import aiRoutes from './routes/ai';
 import ownerRoutes, {
   ownerAuthMiddleware,
@@ -24,6 +24,16 @@ const requireEnv = (name: string): string => {
   return value;
 };
 
+const validateEnv = () => {
+  const required = ['CLERK_SECRET_KEY', 'CLERK_PUBLISHABLE_KEY', 'FRONTEND_URL'];
+  required.forEach(requireEnv);
+
+  const requiresDatabaseUrl = process.env.REQUIRE_DATABASE_URL === 'true';
+  if (requiresDatabaseUrl) {
+    requireEnv('DATABASE_URL');
+  }
+};
+
 const parseOriginList = (value?: string): string[] => {
   if (!value) return [];
   return value
@@ -31,6 +41,8 @@ const parseOriginList = (value?: string): string[] => {
     .map((item) => item.trim())
     .filter(Boolean);
 };
+
+validateEnv();
 
 const FRONTEND_URL = requireEnv('FRONTEND_URL');
 const ALLOWED_ORIGINS = Array.from(new Set([FRONTEND_URL, ...parseOriginList(process.env.FRONTEND_URLS)]));
@@ -50,6 +62,7 @@ const cspDirectives = {
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 // Middleware
 app.use(helmet({
@@ -75,17 +88,29 @@ app.use(cors({
   },
   credentials: true,
 }));
+app.use((req: Request, res: Response, next) => {
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    console.info(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      path: req.path,
+      method: req.method,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - startedAt,
+      userId: req.user?.id || req.__ownerSession?.id || null,
+    }));
+  });
+  next();
+});
 app.use(requestLogger);
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
+app.use(clerkMiddleware());
 
 // Health check route
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'healthy', message: 'NeoToons AI Backend is running.' });
 });
-
-// Auth routes
-app.use('/api/auth', authRoutes);
 
 // Contact routes
 app.use('/api/contact', contactRoutes);
@@ -94,9 +119,22 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
 
 // Owner and platform data routes
-app.use('/api', ownerAuthMiddleware, ownerRateLimitMiddleware, ownerCsrfMiddleware, ownerRoutes);
+app.use('/api', requireAuth(), ownerAuthMiddleware, ownerRateLimitMiddleware, ownerCsrfMiddleware, ownerRoutes);
 
 // Error handling middleware
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: 'Route not found',
+      path: req.path,
+      requestId: req.requestId || null,
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
 app.use(errorHandler);
 
 // Start server

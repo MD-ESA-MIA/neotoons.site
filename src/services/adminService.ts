@@ -24,8 +24,15 @@ const getAdminHeaders = (json = false): HeadersInit => {
 };
 
 const ownerFetch = async (url: string, init: RequestInit = {}) => {
+  const token = localStorage.getItem('neotoons_clerk_token');
+  const headers = new Headers(init.headers || {});
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const response = await fetch(url, {
     credentials: 'include',
+    headers,
     ...init,
   });
 

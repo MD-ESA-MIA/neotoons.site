@@ -287,8 +287,20 @@ export const errorHandler = (
   const isDev = process.env.NODE_ENV !== 'production';
   const message = isDev ? err.message : 'Internal server error';
 
-  res.status(500).json({
-    error: message,
-    ...(isDev && { stack: err.stack })
-  });
+  const payload: Record<string, unknown> = {
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message,
+      path: req.path,
+      requestId: req.requestId || null,
+      timestamp: new Date().toISOString(),
+    },
+  };
+
+  if (isDev) {
+    (payload.error as Record<string, unknown>).stack = err.stack;
+  }
+
+  res.status(500).json(payload);
 };

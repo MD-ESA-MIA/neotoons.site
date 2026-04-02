@@ -168,13 +168,13 @@ export const updatePricingSchema = z.object({
 /**
  * Safe validation with detailed error messages
  */
-export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { valid: true; data: T } | { valid: false; errors: z.ZodError['errors'] } {
+export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { valid: true; data: T } | { valid: false; errors: z.ZodError['issues'] } {
   try {
     const validated = schema.parse(data);
     return { valid: true, data: validated };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { valid: false, errors: error.errors };
+      return { valid: false, errors: error.issues };
     }
     throw error;
   }
@@ -183,7 +183,7 @@ export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { valid
 /**
  * Format validation errors for API response
  */
-export function formatValidationErrors(errors: z.ZodError['errors']): Record<string, string> {
+export function formatValidationErrors(errors: z.ZodError['issues']): Record<string, string> {
   return errors.reduce((acc, error) => {
     const field = error.path.join('.');
     acc[field] = error.message;

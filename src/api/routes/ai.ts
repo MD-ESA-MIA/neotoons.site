@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { requireAuth } from '@clerk/express';
 import { generateContent, clearCache, getCacheStats, checkProviderHealth, getProviderStats } from '../../ai/aiRouter';
 import { AIRequest } from '../../ai/prompts/systemPrompt';
 import { generateVoiceAudioChunks, mapSpeedToSlow } from '../../ai/providers/tts';
@@ -6,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { counterRateLimitStore } from '../lib/rateLimitStore';
+import { ownerAuthMiddleware } from './owner';
 import { log } from '../../utils/logger';
 
 const router = express.Router();
@@ -227,7 +229,7 @@ router.post('/voice-optimize', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('[Voice Optimize Route Error]:', error.message);
+    log.error('Voice optimize failed', error, { ...getLogContext(req), path: req.path });
     return res.status(500).json({
       success: false,
       error: error.message || 'Voice optimization failed',
@@ -647,7 +649,7 @@ router.get('/stats', async (req: Request, res: Response) => {
  * POST /api/ai/clear-cache
  * Clear the request cache (admin only)
  */
-router.post('/clear-cache', async (req: Request, res: Response) => {
+router.post('/clear-cache', requireAuth(), ownerAuthMiddleware, async (req: Request, res: Response) => {
   try {
     // TODO: Verify admin token
     clearCache();

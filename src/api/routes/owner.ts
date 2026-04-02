@@ -1,12 +1,11 @@
 import express, { Request, Response, Router } from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import jwt from 'jsonwebtoken';
 import { randomBytes } from 'node:crypto';
+import { clerkClient, getAuth } from '@clerk/express';
 import { counterRateLimitStore } from '../lib/rateLimitStore';
+import { PERMISSIONS, ROLES, hasPermission, type Permission, type UserRole } from '../security/permissions';
 import { log } from '../../utils/logger';
-
-type UserRole = 'owner' | 'admin' | 'member';
 
 interface OwnerUserRecord {
   id: string;
@@ -53,6 +52,7 @@ declare global {
   namespace Express {
     interface Request {
       __ownerSession?: AdminSessionPayload;
+      userRole?: UserRole;
     }
   }
 }
@@ -84,6 +84,28 @@ const toEpoch = (value: unknown, fallback: number = Date.now()) => {
 const getAdminId = (req: Request) => {
   if (req.__ownerSession?.id) return req.__ownerSession.id;
   return 'owner_system';
+};
+
+const extractRoleFromClaims = (claims: any): UserRole => {
+  // Trust only signed Clerk session claims. Never trust role from client body/query.
+  const metadataRole =
+    claims?.publicMetadata?.role ||
+    claims?.public_metadata?.role ||
+    claims?.metadata?.role;
+  if (typeof metadataRole === 'string' && ROLES.includes(metadataRole as UserRole)) {
+    return metadataRole as UserRole;
+  }
+  // Safe fallback avoids accidental undefined access.
+  return 'member';
+};
+
+const extractEmailFromClaims = (claims: any): string => {
+  const email = claims?.email || claims?.email_address || claims?.primary_email_address;
+  return typeof email === 'string' ? email : 'unknown@user.local';
+};
+
+const isValidRole = (role: unknown): role is UserRole => {
+  return typeof role === 'string' && ROLES.includes(role as UserRole);
 };
 
 const parseCookies = (cookieHeader?: string) => {
@@ -177,34 +199,36 @@ export const ownerRateLimitMiddleware = (req: Request, res: Response, next: () =
 };
 
 export const ownerAuthMiddleware = (req: Request, res: Response, next: () => void) => {
-  const secret = process.env.ADMIN_SESSION_SECRET?.trim();
-  if (!secret) {
-    return res.status(500).json({ error: 'Missing ADMIN_SESSION_SECRET' });
-  }
-  const cookies = parseCookies(req.headers.cookie);
-  const token = cookies.admin_token;
-
-  if (!token) {
-    log.warn('Missing admin session cookie', { ...getLogContext(req), path: req.path });
-    return res.status(401).json({ error: 'Missing admin session' });
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    log.warn('Missing Clerk authentication', { ...getLogContext(req), path: req.path });
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   try {
-    const payload = jwt.verify(token, secret) as AdminSessionPayload;
-    if (!payload || (payload.role !== 'owner' && payload.role !== 'admin')) {
+    const sessionClaims = auth.sessionClaims as any;
+    const role = extractRoleFromClaims(sessionClaims);
+    const email = extractEmailFromClaims(sessionClaims);
+
+    if (role !== 'owner' && role !== 'admin') {
       log.security('Invalid admin session role', 'high', {
         ...getLogContext(req),
         path: req.path,
-        role: payload?.role,
+        role,
       });
       return res.status(403).json({ error: 'Owner access required' });
     }
 
-    req.__ownerSession = payload;
+    req.__ownerSession = {
+      id: auth.userId,
+      email,
+      role,
+    };
+    req.userRole = role;
     req.user = {
-      id: payload.id,
-      email: payload.email,
-      role: payload.role,
+      id: auth.userId,
+      email,
+      role,
     };
     return next();
   } catch (_error) {
@@ -216,6 +240,44 @@ export const ownerAuthMiddleware = (req: Request, res: Response, next: () => voi
   }
 };
 
+const requirePermission = (permission: Permission) => {
+  return (req: Request, res: Response, next: () => void) => {
+    const role = req.userRole;
+    if (!role || !isValidRole(role)) {
+      log.security('Permission denied due to invalid role context', 'high', {
+        ...getLogContext(req),
+        path: req.path,
+        role,
+        permission,
+      });
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (hasPermission(role, permission)) {
+      return next();
+    }
+
+    log.security('Permission denied', 'medium', {
+      ...getLogContext(req),
+      path: req.path,
+      role,
+      permission,
+    });
+    return res.status(403).json({ error: 'Forbidden' });
+  };
+};
+
+const requireOwnerRole = (req: Request, res: Response, next: () => void) => {
+  return requirePermission('*')(req, res, next);
+};
+
+const canReadUsers = requirePermission(PERMISSIONS.USER_READ);
+const canBanUsers = requirePermission(PERMISSIONS.USER_BAN);
+const canReadDashboard = requirePermission(PERMISSIONS.DASHBOARD_READ);
+const canReadActivity = requirePermission(PERMISSIONS.ACTIVITY_READ);
+const canReadSystemStatus = requirePermission(PERMISSIONS.SYSTEM_READ);
+const canReadAiTools = requirePermission(PERMISSIONS.AI_READ);
+
 const safeParse = <T>(raw: string, fallback: T): T => {
   try {
     return JSON.parse(raw) as T;
@@ -225,7 +287,7 @@ const safeParse = <T>(raw: string, fallback: T): T => {
 };
 
 const normalizeRole = (role: unknown): UserRole => {
-  if (role === 'owner' || role === 'admin' || role === 'member') return role;
+  if (isValidRole(role)) return role;
   if (role === 'user') return 'member';
   return 'member';
 };
@@ -334,7 +396,7 @@ const logActivity = async (entry: Omit<ActivityRecord, 'id' | 'createdAt'>) => {
   await writeActivity(next);
 };
 
-router.get('/users', async (_req: Request, res: Response) => {
+router.get('/users', canReadUsers, async (_req: Request, res: Response) => {
   try {
     const users = await readUsers();
     res.json(users);
@@ -344,7 +406,7 @@ router.get('/users', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/users', async (req: Request, res: Response) => {
+router.post('/users', requireOwnerRole, async (req: Request, res: Response) => {
   try {
     const incoming = req.body || {};
     if (!incoming.id || !incoming.email) {
@@ -396,7 +458,7 @@ router.post('/users', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/users/update-role', async (req: Request, res: Response) => {
+router.post('/users/update-role', requireOwnerRole, async (req: Request, res: Response) => {
   try {
     const { userId, role } = req.body || {};
     if (!userId || !role) {
@@ -407,6 +469,10 @@ router.post('/users/update-role', async (req: Request, res: Response) => {
     const index = users.findIndex((user) => user.id === userId);
     if (index < 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (users[index].role === 'owner') {
+      return res.status(403).json({ error: 'Cannot modify owner' });
     }
 
     users[index].role = normalizeRole(role);
@@ -433,7 +499,7 @@ router.post('/users/update-role', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/users/:userId/role', async (req: Request, res: Response) => {
+router.patch('/users/:userId/role', requireOwnerRole, async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
     const role = req.body?.role;
@@ -445,6 +511,10 @@ router.patch('/users/:userId/role', async (req: Request, res: Response) => {
     const index = users.findIndex((user) => user.id === userId);
     if (index < 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (users[index].role === 'owner') {
+      return res.status(403).json({ error: 'Cannot modify owner' });
     }
 
     users[index].role = normalizeRole(role);
@@ -461,6 +531,9 @@ router.patch('/users/:userId/role', async (req: Request, res: Response) => {
     });
 
     rotateCsrfToken(res);
+    log.audit('OWNER_USER_ROLE_UPDATED', getAdminId(req), users[index].id, {
+      role: users[index].role,
+    }, { path: req.path });
     res.json({ success: true, user: users[index] });
   } catch (error: any) {
     logRouteError(req, error);
@@ -468,7 +541,7 @@ router.patch('/users/:userId/role', async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/users/:userId/ban', async (req: Request, res: Response) => {
+router.patch('/users/:userId/ban', canBanUsers, async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
     const { isBanned } = req.body || {};
@@ -477,6 +550,10 @@ router.patch('/users/:userId/ban', async (req: Request, res: Response) => {
     const index = users.findIndex((user) => user.id === userId);
     if (index < 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (users[index].role === 'owner') {
+      return res.status(403).json({ error: 'Cannot modify owner' });
     }
 
     users[index].isBanned = Boolean(isBanned);
@@ -502,7 +579,7 @@ router.patch('/users/:userId/ban', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/users/:userId', async (req: Request, res: Response) => {
+router.delete('/users/:userId', requireOwnerRole, async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId;
     const users = await readUsers();
@@ -511,6 +588,10 @@ router.delete('/users/:userId', async (req: Request, res: Response) => {
 
     if (!target) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (target.role === 'owner') {
+      return res.status(403).json({ error: 'Cannot modify owner' });
     }
 
     await writeUsers(next);
@@ -534,7 +615,45 @@ router.delete('/users/:userId', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/dashboard', async (_req: Request, res: Response) => {
+router.patch('/admin/set-role', requireOwnerRole, async (req: Request, res: Response) => {
+  try {
+    const { userId, role } = req.body || {};
+    const requesterId = req.__ownerSession?.id;
+
+    if (!userId || !role) {
+      return res.status(400).json({ error: 'userId and role are required' });
+    }
+
+    if (requesterId && requesterId === userId) {
+      return res.status(400).json({ error: 'Cannot change own role' });
+    }
+
+    if (!isValidRole(role) || role === 'owner') {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    const updatedUser = await clerkClient.users.updateUser(userId, {
+      publicMetadata: { role },
+    });
+
+    await logActivity({
+      userId,
+      adminId: getAdminId(req),
+      userName: updatedUser.firstName || updatedUser.username || updatedUser.id,
+      type: 'USER_ROLE_UPDATED',
+      description: `Role changed to ${role} in Clerk metadata.`,
+      metadata: { role, source: 'clerk_metadata' },
+    });
+
+    log.audit('OWNER_CLERK_ROLE_UPDATED', getAdminId(req), userId, { role }, { path: req.path });
+    res.json({ success: true, userId, role });
+  } catch (error: any) {
+    logRouteError(req, error);
+    res.status(500).json({ error: error.message || 'Failed to set role' });
+  }
+});
+
+router.get('/dashboard', canReadDashboard, async (_req: Request, res: Response) => {
   try {
     const users = await readUsers();
     const activity = await readActivity();
@@ -589,7 +708,7 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/activity', async (_req: Request, res: Response) => {
+router.get('/activity', canReadActivity, async (_req: Request, res: Response) => {
   try {
     const activity = await readActivity();
     res.json(activity.slice(0, 100));
@@ -599,7 +718,7 @@ router.get('/activity', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/system-status', async (_req: Request, res: Response) => {
+router.get('/system-status', canReadSystemStatus, async (_req: Request, res: Response) => {
   try {
     const users = await readUsers();
     res.json({
@@ -621,7 +740,7 @@ router.get('/system-status', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/ai/tools', async (_req: Request, res: Response) => {
+router.get('/ai/tools', canReadAiTools, async (_req: Request, res: Response) => {
   try {
     const tools = await readToolUsage();
     res.json({

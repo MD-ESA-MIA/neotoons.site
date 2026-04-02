@@ -1,140 +1,226 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useAuth as useClerkAuth, useClerk, useSignIn, useSignUp, useUser } from '@clerk/clerk-react';
+import { User, Role, Plan } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  verifyEmailCode: (code: string) => Promise<void>;
+  logout: () => Promise<void>;
   updateCurrentUser: (user: User) => void;
   isLoading: boolean;
   isProOrStudio: boolean;
+  requiresEmailVerification: boolean;
+  pendingVerificationEmail: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const buildUser = (raw: any): User => ({
-  id: raw.id,
-  name: raw.name,
-  displayName: raw.displayName || raw.name,
-  username: raw.username,
-  email: raw.email,
-  role: raw.role || 'member',
-  plan: raw.plan || 'free',
-  credits: typeof raw.credits === 'number' ? raw.credits : 20,
-  usage: typeof raw.usage === 'number' ? raw.usage : 0,
-  joinedAt: raw.joinedAt || new Date().toISOString().split('T')[0],
-  createdAt: raw.createdAt || new Date().toISOString(),
-  lastActive: raw.lastActive || new Date().toISOString(),
-  generationCount: typeof raw.generationCount === 'number' ? raw.generationCount : 0,
-  avatar: raw.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(raw.name || raw.email || 'user')}`,
-  followers: Array.isArray(raw.followers) ? raw.followers : [],
-  following: Array.isArray(raw.following) ? raw.following : [],
-  notificationSettings: raw.notificationSettings || { email: true, push: true, marketing: false },
-  privacySettings: raw.privacySettings || { profilePublic: true, showActivity: true },
-});
+const toRole = (value: unknown): Role => {
+  return value === 'owner' || value === 'admin' || value === 'member' ? value : 'member';
+};
+
+const toPlan = (value: unknown): Plan => {
+  return value === 'free' || value === 'pro' || value === 'studio' || value === 'premium' ? value : 'free';
+};
+
+const toUsername = (email: string, metadataUsername?: string | null) => {
+  if (metadataUsername && metadataUsername.trim()) {
+    return metadataUsername.trim().toLowerCase();
+  }
+
+  const localPart = email.split('@')[0] || 'user';
+  return localPart.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+};
+
+const buildUser = (raw: any): User => {
+  const email = raw?.primaryEmailAddress?.emailAddress || raw?.emailAddresses?.[0]?.emailAddress || '';
+  const fullName = raw?.fullName || raw?.firstName || 'Creator';
+  const metadata = raw?.publicMetadata || {};
+  const joined = raw?.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString();
+  const lastSeen = raw?.lastSignInAt ? new Date(raw.lastSignInAt).toISOString() : new Date().toISOString();
+
+  return {
+    id: raw.id,
+    name: fullName,
+    displayName: (metadata.displayName as string) || fullName,
+    username: toUsername(email, (metadata.username as string) || null),
+    email,
+    role: toRole(metadata.role),
+    plan: toPlan(metadata.plan),
+    credits: typeof metadata.credits === 'number' ? metadata.credits : 20,
+    usage: typeof metadata.usage === 'number' ? metadata.usage : 0,
+    joinedAt: joined.split('T')[0],
+    createdAt: joined,
+    lastActive: lastSeen,
+    generationCount: typeof metadata.generationCount === 'number' ? metadata.generationCount : 0,
+    avatar: raw.imageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName || email || 'user')}`,
+    followers: [],
+    following: [],
+    notificationSettings: { email: true, push: true, marketing: false },
+    privacySettings: { profilePublic: true, showActivity: true },
+  };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isLoaded: isUserLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useClerkAuth();
+  const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn();
+  const { isLoaded: isSignUpLoaded, signUp } = useSignUp();
+  const { signOut } = useClerk();
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isWorking, setIsWorking] = useState(false);
+  const [requiresEmailVerification, setRequiresEmailVerification] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
+
+  const isLoading = !isUserLoaded || isWorking;
 
   useEffect(() => {
-    const initSession = async () => {
+    if (!isUserLoaded) {
+      return;
+    }
+
+    if (!isSignedIn || !user) {
+      setCurrentUser(null);
+      return;
+    }
+
+    try {
+      setCurrentUser(buildUser(user));
+    } catch (_error) {
+      setCurrentUser(null);
+    }
+  }, [isUserLoaded, isSignedIn, user]);
+
+  useEffect(() => {
+    const syncClerkToken = async () => {
+      if (!isUserLoaded || !isSignedIn) {
+        localStorage.removeItem('neotoons_clerk_token');
+        return;
+      }
+
       try {
-        const response = await fetch('/api/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          setCurrentUser(null);
-          return;
+        const token = await getToken();
+        if (token) {
+          localStorage.setItem('neotoons_clerk_token', token);
         }
-
-        const contentType = response.headers.get('content-type');
-        if (!contentType?.includes('application/json')) {
-          setCurrentUser(null);
-          return;
-        }
-
-        const data = await response.json();
-        setCurrentUser(buildUser(data));
       } catch (_error) {
-        setCurrentUser(null);
-      } finally {
-        setIsLoading(false);
+        localStorage.removeItem('neotoons_clerk_token');
       }
     };
 
-    initSession();
-  }, []);
+    void syncClerkToken();
+  }, [isUserLoaded, isSignedIn, getToken]);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
+    if (!isSignInLoaded) {
+      throw new Error('Authentication is still loading. Please try again.');
+    }
+
+    setIsWorking(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const attempt = await signIn.create({
+        identifier: email,
+        password,
       });
 
-      const contentType = response.headers.get('content-type');
-      const payload = contentType?.includes('application/json') ? await response.json() : null;
-
-      if (!response.ok || !payload?.user) {
-        throw new Error(payload?.error || 'Invalid email or password');
+      if (attempt.status !== 'complete' || !attempt.createdSessionId) {
+        throw new Error('Unable to complete sign in.');
       }
 
-      setCurrentUser(buildUser(payload.user));
+      await setActive?.({ session: attempt.createdSessionId });
+      setRequiresEmailVerification(false);
+      setPendingVerificationEmail(null);
     } finally {
-      setIsLoading(false);
+      setIsWorking(false);
     }
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
+    if (!isSignUpLoaded) {
+      throw new Error('Authentication is still loading. Please try again.');
+    }
+
+    setIsWorking(true);
     try {
       const username = `${name.toLowerCase().replace(/\s+/g, '_')}${Math.floor(Math.random() * 1000)}`;
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, username }),
+
+      await signUp.create({
+        emailAddress: email,
+        password,
+        unsafeMetadata: {
+          displayName: name,
+          username,
+          role: 'member',
+          plan: 'free',
+        },
       });
 
-      const contentType = response.headers.get('content-type');
-      const payload = contentType?.includes('application/json') ? await response.json() : null;
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setPendingVerificationEmail(email);
+      setRequiresEmailVerification(true);
+    } finally {
+      setIsWorking(false);
+    }
+  };
 
-      if (!response.ok || !payload?.user) {
-        throw new Error(payload?.error || 'Signup failed');
+  const verifyEmailCode = async (code: string) => {
+    if (!isSignUpLoaded) {
+      throw new Error('Verification is still loading. Please try again.');
+    }
+
+    setIsWorking(true);
+    try {
+      const verification = await signUp.attemptEmailAddressVerification({ code });
+
+      if (verification.status !== 'complete' || !verification.createdSessionId) {
+        throw new Error('Invalid or expired verification code.');
       }
 
-      setCurrentUser(buildUser(payload.user));
+      await setActive?.({ session: verification.createdSessionId });
+      setRequiresEmailVerification(false);
+      setPendingVerificationEmail(null);
     } finally {
-      setIsLoading(false);
+      setIsWorking(false);
     }
   };
 
   const logout = async () => {
+    setIsWorking(true);
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await signOut();
     } finally {
+      localStorage.removeItem('neotoons_clerk_token');
       setCurrentUser(null);
+      setRequiresEmailVerification(false);
+      setPendingVerificationEmail(null);
+      setIsWorking(false);
     }
   };
 
-  const updateCurrentUser = (user: User) => {
-    setCurrentUser(user);
+  const updateCurrentUser = (userData: User) => {
+    setCurrentUser(userData);
   };
 
   const isProOrStudio = currentUser?.plan === 'pro' || currentUser?.plan === 'studio';
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, signup, logout, updateCurrentUser, isLoading, isProOrStudio }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        login,
+        signup,
+        verifyEmailCode,
+        logout,
+        updateCurrentUser,
+        isLoading,
+        isProOrStudio,
+        requiresEmailVerification,
+        pendingVerificationEmail,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

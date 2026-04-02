@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-import { updateProfile } from '../store/slices/authSlice';
+import { useAuth } from '../context/AuthContext';
 import { 
   User, 
   Settings, 
@@ -29,7 +29,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 const EditProfile: React.FC = () => {
   const { user: currentUser, token } = useSelector((state: RootState) => state.auth);
-  const dispatch = useDispatch();
+  const { updateCurrentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -164,7 +164,7 @@ const EditProfile: React.FC = () => {
         return;
       }
 
-      await dispatch(updateProfile(formData) as any);
+      updateCurrentUser(formData);
       toast.success("Profile updated!");
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");

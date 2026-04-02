@@ -46,7 +46,7 @@ export const dbService = {
    * Listen to real-time updates
    */
   subscribe<T>(collectionName: string, callback: (data: T[]) => void, mockData: T[]) {
-    this.getAll<T>(collectionName, mockData)
+    dbService.getAll<T>(collectionName, mockData)
       .then((data) => callback(data))
       .catch((error) => {
         console.error(`Subscription bootstrap error for ${collectionName}:`, error);
